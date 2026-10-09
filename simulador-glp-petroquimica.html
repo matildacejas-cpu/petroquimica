@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador GLP – Petroquímica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root{
+    --bg: #E7DFFF;
+    --panel: #F6FAFD;
+    --panel-edge: #B3CFE5;
+    --ink: #0A1931;
+    --ink-soft: #4A7FA7;
+    --blue-700: #1A3D63;
+    --blue-600: #4A7FA7;
+    --sky-400: #4A7FA7;
+    --sky-200: #B3CFE5;
+    --flame-500: #f0883e;
+    --flame-600: #e06f24;
+    --ok-500: #29a672;
+    --warn-500: #e0a52b;
+    --hot-500: #d9502f;
+    --shadow-panel: 0 1px 0 rgba(10,25,49,0.05), 0 8px 24px -12px rgba(10,25,49,0.22);
+  }
+  :root:not([data-theme="light"]){
+    /* keep light regardless of system scheme: this app is designed light-only */
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .disp{ font-family: 'Inter', sans-serif; }
+  #root{ min-height: 100vh; }
+
+  .wrap{ max-width: 920px; margin: 0 auto; padding: 20px 20px 64px; }
+  @media (min-width: 640px){ .wrap{ padding: 32px 28px 72px; } }
+
+  .topbar{
+    display:flex; align-items:center; gap:14px;
+    padding: 10px 4px 22px;
+  }
+  .back-btn{
+    display:flex; align-items:center; justify-content:center;
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    color: var(--blue-700); cursor: pointer; flex: none;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .back-btn:hover{ background:#f2fafd; transform: translateX(-2px); }
+  .back-btn:focus-visible, button:focus-visible, input:focus-visible{
+    outline: 2px solid var(--blue-600); outline-offset: 2px;
+  }
+
+  .valve-icon{ width:34px; height:34px; flex:none; }
+
+  .kicker-row{ display:flex; align-items:center; gap:10px; }
+  .h-title{ font-size: 22px; font-weight: 700; margin:0; letter-spacing: -0.01em; }
+  .h-sub{ margin: 2px 0 0; color: var(--ink-soft); font-size: 14px; }
+
+  /* ---- menu cards ---- */
+  .menu-hero{ margin-bottom: 26px; }
+  .menu-hero h1{ font-size: 30px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.015em; }
+  @media (min-width:640px){ .menu-hero h1{ font-size: 36px; } }
+  .menu-hero p{ margin:0; color: var(--ink-soft); font-size: 15.5px; max-width: 46ch; }
+
+  .grid{
+    display:grid; grid-template-columns: 1fr; gap: 14px;
+  }
+  @media (min-width: 560px){ .grid{ grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 860px){ .grid{ grid-template-columns: 1fr 1fr 1fr; } }
+
+  .card-btn{
+    position: relative; text-align: left; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    border-radius: 14px; padding: 18px 16px 16px;
+    display:flex; flex-direction: column; gap: 10px;
+    box-shadow: var(--shadow-panel);
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .card-btn:hover{ border-color: var(--blue-600); transform: translateY(-2px); }
+  .card-icon-plate{
+    width: 46px; height: 46px; border-radius: 10px;
+    background: linear-gradient(155deg, var(--sky-200), #ffffff);
+    display:flex; align-items:center; justify-content:center;
+    border: 1px solid var(--panel-edge);
+  }
+  .card-icon-plate svg{ width: 24px; height:24px; color: var(--blue-700); }
+  .card-btn h3{ margin:0; font-size: 16.5px; font-weight: 700; }
+  .card-btn p{ margin:0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.45; }
+  .card-dial{
+    position:absolute; top: 14px; right: 14px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--sky-400);
+  }
+
+  /* ---- panel / section ---- */
+  .panel{
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    border-radius: 16px; padding: 20px; box-shadow: var(--shadow-panel);
+    margin-bottom: 16px;
+  }
+  @media (min-width:640px){ .panel{ padding: 26px; } }
+  .panel + .panel{ margin-top: 4px; }
+  .field-label{ font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 0 0 10px; }
+
+  /* choice pills */
+  .pill-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (min-width:560px){ .pill-grid.cols-3{ grid-template-columns: 1fr 1fr 1fr; } }
+  @media (min-width:560px){ .pill-grid.cols-4{ grid-template-columns: 1fr 1fr 1fr 1fr; } }
+  .pill{
+    border: 1.5px solid var(--panel-edge); background: #f9fdff;
+    border-radius: 11px; padding: 12px 10px; cursor: pointer;
+    display:flex; flex-direction: column; align-items:flex-start; gap: 6px;
+    font-family: inherit; text-align:left; transition: all .15s ease;
+  }
+  .pill svg{ width:18px; height:18px; color: var(--blue-700); }
+  .pill span{ font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .pill:hover{ border-color: var(--sky-400); }
+  .pill.active{
+    border-color: var(--blue-600); background: linear-gradient(155deg,#eaf8ff, #ffffff);
+    box-shadow: 0 0 0 3px rgba(12,132,196,0.12);
+  }
+
+  /* slider */
+  .slider-row{ margin: 18px 0 4px; }
+  .slider-top{ display:flex; justify-content: space-between; align-items:baseline; margin-bottom: 10px; }
+  .slider-value{ font-family:'Inter',sans-serif; font-weight:700; font-size: 20px; color: var(--blue-700); }
+  .slider-value small{ font-size: 12px; font-weight:600; color: var(--ink-soft); margin-left:3px;}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height: 6px;
+    border-radius: 5px; background: linear-gradient(90deg, var(--sky-200), var(--sky-200));
+    outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+    background: var(--panel); border: 3px solid var(--blue-600); cursor:pointer;
+    box-shadow: 0 2px 6px rgba(12,58,82,0.25);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%;
+    background: var(--panel); border: 3px solid var(--blue-600); cursor:pointer;
+  }
+  .slider-scale{ display:flex; justify-content: space-between; font-size: 11.5px; color: #7fa7bc; margin-top: 6px; }
+
+  /* action button */
+  .action-btn{
+    width:100%; margin-top: 20px; border:none; cursor:pointer;
+    background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+    color:#fff; font-family:'Inter',sans-serif; font-weight:700;
+    font-size: 14.5px; letter-spacing: 0.02em; border-radius: 12px;
+    padding: 14px 18px; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow: 0 8px 20px -8px rgba(6,102,158,0.55);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .action-btn:hover{ transform: translateY(-1px); }
+  .action-btn:active{ transform: translateY(0); }
+  .action-btn svg{ width:17px; height:17px; }
+
+  /* result */
+  .result-panel{
+    background: linear-gradient(165deg, #ffffff, #f2fbff);
+    border: 1px solid var(--panel-edge); border-radius: 16px; padding: 22px;
+    box-shadow: var(--shadow-panel);
+  }
+  .result-head{ display:flex; align-items:center; gap:10px; margin-bottom: 16px; }
+  .result-head .dot{ width:8px; height:8px; border-radius:50%; background: var(--ok-500); box-shadow: 0 0 0 4px rgba(41,166,114,0.15); }
+  .result-head span{ font-size: 12.5px; font-weight:700; letter-spacing:0.03em; color: var(--ink-soft); }
+
+  .stat-row{ display:grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 18px; }
+  @media (min-width:560px){ .stat-row{ grid-template-columns: repeat(3, 1fr); } }
+  .stat{
+    background: var(--panel); border:1px solid var(--panel-edge); border-radius: 12px;
+    padding: 13px 14px;
+  }
+  .stat .num{ font-family:'Inter',sans-serif; font-size: 21px; font-weight:700; color: var(--blue-700); }
+  .stat .num small{ font-size:12px; font-weight:600; color: var(--ink-soft); }
+  .stat .lab{ font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+
+  .gauge-wrap{ margin: 6px 0 18px; }
+  .gauge-labels{ display:flex; justify-content: space-between; font-size: 11.5px; font-weight:600; color: var(--ink-soft); margin-bottom: 6px; }
+  .gauge-track{ position:relative; height: 12px; border-radius: 8px; background: #e6f2f8; overflow:hidden; }
+  .gauge-fill{ position:absolute; top:0; left:0; height:100%; border-radius: 8px; transition: width .4s ease, background .4s ease; }
+  .gauge-tag{ margin-top:8px; display:inline-flex; align-items:center; gap:6px; font-size: 12.5px; font-weight:700; padding: 4px 10px; border-radius: 20px; }
+
+  .note-box{
+    display:flex; gap:10px; font-size: 13px; color: var(--ink-soft); line-height:1.55;
+    background: #f6fbfe; border: 1px dashed var(--panel-edge); border-radius: 10px; padding: 12px 13px;
+  }
+  .note-box svg{ width:16px; height:16px; flex:none; margin-top:1px; color: var(--blue-600); }
+
+  .explain-box{
+    margin-top: 16px; background: #fef8f0; border: 1px solid #f6e3c8; border-radius: 12px;
+    padding: 13px 15px; font-size: 13.5px; color: #7a5420; line-height: 1.55;
+  }
+  .explain-box b{ color:#6b4713; }
+
+  /* flow scheme (petroquimica) */
+  .flow-row{ display:flex; align-items:center; gap: 6px; overflow-x:auto; padding: 6px 2px 10px; }
+  .flow-step{
+    flex: none; min-width: 118px; text-align:center; background:#fff;
+    border:1px solid var(--panel-edge); border-radius: 12px; padding: 12px 8px;
+  }
+  .flow-step .ico{ width:30px; height:30px; margin: 0 auto 6px; color: var(--blue-700); }
+  .flow-step .lab{ font-size: 12px; font-weight:700; color: var(--ink); }
+  .flow-step .sub{ font-size: 10.5px; color: var(--ink-soft); margin-top:2px; }
+  .flow-arrow{ flex:none; width:20px; height:20px; color: var(--sky-400); }
+
+  .truck-scene{
+    position:relative; height: 64px; background: linear-gradient(to bottom, #eaf7fe 0%, #eaf7fe 60%, #d7ecf5 60%, #d7ecf5 100%);
+    border-radius: 10px; overflow:hidden; margin-bottom: 4px; border:1px solid var(--panel-edge);
+  }
+  .truck-scene .road-line{
+    position:absolute; bottom: 18px; left:0; right:0; height:2px;
+    background-image: repeating-linear-gradient(to right, #bcdcea 0 14px, transparent 14px 26px);
+  }
+  .truck-scene .truck-ico{ position:absolute; bottom: 14px; width: 40px; height: 40px; color: var(--blue-700); transition: left 1.1s ease; }
+
+  footer.credit{ text-align:center; color:#8fb3c6; font-size:12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+
+/* ---------------------------------------------------------------- */
+/* Icons (inline, hand-drawn line style, no external icon library)   */
+/* ---------------------------------------------------------------- */
+const Icon = ({ children, ...p }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+       strokeLinecap="round" strokeLinejoin="round" {...p}>{children}</svg>
+);
+const IconHome = (p) => <Icon {...p}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9h13v-9"/><path d="M9.5 19v-5.5h5V19"/></Icon>;
+const IconFactory = (p) => <Icon {...p}><path d="M3 20V11l5 3.2V11l5 3.2V9l6 3.8V20Z"/><path d="M3 20h18"/><path d="M8 20v-3"/><path d="M14 20v-3"/></Icon>;
+const IconTruck = (p) => <Icon {...p}><path d="M3 16V7a1 1 0 0 1 1-1h9v10"/><path d="M13 10h4.2a1 1 0 0 1 .8.4l2.5 3.2a1 1 0 0 1 .2.6V16h-3"/><circle cx="7" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/><path d="M3 16h1.3"/></Icon>;
+const IconWheat = (p) => <Icon {...p}><path d="M12 3v18"/><path d="M12 6c-2 0-3.5 1.4-3.5 3S10 12 12 12s3.5-1.4 3.5-3S14 6 12 6Z"/><path d="M12 10c-2 0-3.5 1.4-3.5 3s1.5 3 3.5 3 3.5-1.4 3.5-3-1.5-3-3.5-3Z"/><path d="M9 20c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5"/></Icon>;
+const IconFlask = (p) => <Icon {...p}><path d="M9 3h6"/><path d="M10 3v6.2L5.3 17a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.2V3"/><path d="M8.2 15h7.6"/></Icon>;
+const IconArrowLeft = (p) => <Icon {...p}><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></Icon>;
+const IconArrowRight = (p) => <Icon {...p}><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></Icon>;
+const IconFlame = (p) => <Icon {...p}><path d="M12 3c1.2 2.2 4 4.2 4 8a4 4 0 1 1-8 0c0-1 .3-1.8.8-2.6.2.9.9 1.6 1.7 1.6.9 0 1.5-.8 1.4-1.7C11.6 6.7 11.4 4.8 12 3Z"/></Icon>;
+const IconGauge = (p) => <Icon {...p}><path d="M4 15a8 8 0 1 1 16 0"/><path d="M12 15l3.5-4.5"/><path d="M12 15h0"/><circle cx="12" cy="15" r="1"/></Icon>;
+const IconDroplet = (p) => <Icon {...p}><path d="M12 3s6 6.8 6 11a6 6 0 1 1-12 0c0-4.2 6-11 6-11Z"/></Icon>;
+const IconWind = (p) => <Icon {...p}><path d="M3 8h11a2.5 2.5 0 1 0-2.2-3.6"/><path d="M3 13h15a2.5 2.5 0 1 1-2.2 3.7"/><path d="M3 18h8"/></Icon>;
+const IconThermo = (p) => <Icon {...p}><path d="M12 14.5V4a2 2 0 1 0-4 0v10.5a4 4 0 1 0 4 0Z"/></Icon>;
+const IconLeaf = (p) => <Icon {...p}><path d="M5 13c0-5.5 4.5-9 11-9 0 6.5-3.5 11-9 11-1.5 0-2-1-2-2Z"/><path d="M6 20c1-3 3-6 8-9"/></Icon>;
+const IconGreenhouse = (p) => <Icon {...p}><path d="M12 3 3 8v11h18V8Z"/><path d="M3 8h18"/><path d="M12 3v16"/><path d="M7.5 19v-5.5h9V19"/></Icon>;
+const IconInfo = (p) => <Icon {...p}><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h0"/></Icon>;
+const IconBolt = (p) => <Icon {...p}><path d="M13 3 6 14h5l-1 7 7-11h-5l1-7Z"/></Icon>;
+const IconPlay = (p) => <Icon {...p}><path d="M7 5v14l11-7Z"/></Icon>;
+
+/* ---------------------------------------------------------------- */
+/* Shared UI pieces                                                  */
+/* ---------------------------------------------------------------- */
+function TopBar({ title, subtitle, onBack }) {
+  return (
+    <div className="topbar">
+      {onBack && (
+        <button className="back-btn" onClick={onBack} aria-label="Volver al menú principal">
+          <IconArrowLeft width={18} height={18} />
+        </button>
+      )}
+      <div className="kicker-row">
+        <svg className="valve-icon" viewBox="0 0 24 24" fill="none" stroke="#1A3D63" strokeWidth="1.6">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.2 1.9" strokeLinecap="round" />
+        </svg>
+        <div>
+          <h1 className="h-title disp">{title}</h1>
+          {subtitle && <p className="h-sub">{subtitle}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Pill({ active, onClick, icon, label }) {
+  return (
+    <button type="button" className={"pill" + (active ? " active" : "")} onClick={onClick}>
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function SliderField({ label, value, min, max, step, unit, onChange, minLabel, maxLabel }) {
+  return (
+    <div className="slider-row">
+      <div className="slider-top">
+        <span className="field-label" style={{ margin: 0 }}>{label}</span>
+        <span className="slider-value">{value}<small>{unit}</small></span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+             onChange={(e) => onChange(Number(e.target.value))} />
+      <div className="slider-scale"><span>{minLabel ?? (min + " " + unit)}</span><span>{maxLabel ?? (max + " " + unit)}</span></div>
+    </div>
+  );
+}
+
+function levelInfo(level) {
+  if (level === "bajo") return { pct: 28, color: "var(--ok-500)", bg: "rgba(41,166,114,0.12)", text: "#1d7a53", label: "Consumo bajo" };
+  if (level === "medio") return { pct: 62, color: "var(--warn-500)", bg: "rgba(224,165,43,0.15)", text: "#8a6110", label: "Consumo medio" };
+  return { pct: 92, color: "var(--hot-500)", bg: "rgba(217,80,47,0.13)", text: "#a3391d", label: "Consumo alto" };
+}
+
+function GaugeBar({ level }) {
+  const info = levelInfo(level);
+  return (
+    <div className="gauge-wrap">
+      <div className="gauge-labels"><span>Bajo</span><span>Medio</span><span>Alto</span></div>
+      <div className="gauge-track">
+        <div className="gauge-fill" style={{ width: info.pct + "%", background: info.color }} />
+      </div>
+      <span className="gauge-tag" style={{ background: info.bg, color: info.text }}>
+        <IconGauge width={13} height={13} /> {info.label}
+      </span>
+    </div>
+  );
+}
+
+function Stat({ value, unit, label }) {
+  return (
+    <div className="stat">
+      <div className="num">{value}<small> {unit}</small></div>
+      <div className="lab">{label}</div>
+    </div>
+  );
+}
+
+function ActionButton({ onClick, children }) {
+  return (
+    <button className="action-btn" onClick={onClick}>
+      <IconPlay width={15} height={15} /> {children}
+    </button>
+  );
+}
+
+function EduNote({ children }) {
+  return (
+    <div className="note-box">
+      <IconInfo />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function fmt(n, d = 2) {
+  return Number(n.toFixed(d)).toLocaleString("es-AR", { maximumFractionDigits: d });
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 1: Menú principal                                        */
+/* ---------------------------------------------------------------- */
+const MENU_ITEMS = [
+  { id: "hogar", title: "Uso doméstico", desc: "Simulá el consumo de GLP en actividades del hogar.", icon: <IconHome /> },
+  { id: "transporte", title: "Transporte", desc: "Calculá el consumo estimado de GLP según el vehículo y la distancia.", icon: <IconTruck /> },
+  { id: "industria", title: "Industria", desc: "Explorá el uso del GLP en distintos procesos industriales.", icon: <IconFactory /> },
+  { id: "petroquimica", title: "Petroquímica", desc: "Descubrí cómo el propano y el butano se usan como materia prima.", icon: <IconFlask /> },
+  { id: "agricultura", title: "Agricultura", desc: "Conocé y simulá el uso del GLP en actividades agrícolas.", icon: <IconLeaf /> },
+];
+
+function Menu({ onSelect }) {
+  return (
+    <div>
+      <div className="menu-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1A3D63" strokeWidth="1.6">
+            <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.2 1.9" strokeLinecap="round" />
+          </svg>
+          <span className="disp" style={{ fontSize: 15, fontWeight: 700, color: "var(--blue-700)" }}>Simulador GLP</span>
+        </div>
+        <h1 className="disp">¡Aprendé jugando!</h1>
+        <p>Elegí qué querés simular. Cada estación te muestra cómo se usa el Gas Licuado de Petróleo en la vida real, con resultados estimados que se actualizan al instante.</p>
+      </div>
+      <div className="grid">
+        {MENU_ITEMS.map((item) => (
+          <button key={item.id} className="card-btn" onClick={() => onSelect(item.id)}>
+            <span className="card-dial" />
+            <span className="card-icon-plate">{item.icon}</span>
+            <h3>{item.title}</h3>
+            <p>{item.desc}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 2: Hogar                                                  */
+/* ---------------------------------------------------------------- */
+const HOGAR_ACTS = [
+  { id: "cocinar", label: "Cocinar", icon: <IconFlame />, rate: 0.32 },
+  { id: "calefaccionar", label: "Calefaccionar", icon: <IconThermo />, rate: 0.5 },
+  { id: "agua", label: "Calentar agua", icon: <IconDroplet />, rate: 0.4 },
+];
+
+function Hogar({ onBack }) {
+  const [act, setAct] = useState(HOGAR_ACTS[0]);
+  const [mins, setMins] = useState(30);
+  const [show, setShow] = useState(false);
+
+  const kg = (act.rate * mins) / 60;
+  const level = kg < 0.3 ? "bajo" : kg < 0.6 ? "medio" : "alto";
+
+  return (
+    <div>
+      <TopBar title="Hogar" subtitle="Simulá cuánto GLP consumen tus actividades diarias." onBack={onBack} />
+      <div className="panel">
+        <p className="field-label">Elegí una actividad</p>
+        <div className="pill-grid cols-3">
+          {HOGAR_ACTS.map((a) => (
+            <Pill key={a.id} active={act.id === a.id} onClick={() => { setAct(a); setShow(false); }} icon={a.icon} label={a.label} />
+          ))}
+        </div>
+        <SliderField label="Tiempo de utilización" value={mins} min={10} max={120} step={5} unit="min" onChange={(v) => { setMins(v); setShow(false); }} />
+        <ActionButton onClick={() => setShow(true)}>CALCULAR CONSUMO</ActionButton>
+      </div>
+
+      {show && (
+        <div className="result-panel">
+          <div className="result-head"><span className="dot" /><span>RESULTADO ESTIMADO</span></div>
+          <div className="stat-row">
+            <Stat value={fmt(kg)} unit="kg" label="GLP estimado" />
+            <Stat value={mins} unit="min" label="Tiempo seleccionado" />
+            <Stat value={act.label} unit="" label="Actividad" />
+          </div>
+          <GaugeBar level={level} />
+          <EduNote>Este valor es una estimación educativa: el consumo real depende del artefacto, su antigüedad y la potencia del quemador.</EduNote>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 3: Transporte                                            */
+/* ---------------------------------------------------------------- */
+const VEHICULOS = [
+  { id: "auto", label: "Auto particular", kmxl: 10, tanque: 45 },
+  { id: "taxi", label: "Taxi", kmxl: 9, tanque: 60 },
+  { id: "camioneta", label: "Camioneta", kmxl: 7, tanque: 70 },
+  { id: "colectivo", label: "Colectivo", kmxl: 3, tanque: 200 },
+];
+
+function Transporte({ onBack }) {
+  const [veh, setVeh] = useState(VEHICULOS[0]);
+  const [km, setKm] = useState(100);
+
+  const litros = km / veh.kmxl;
+  const autonomia = veh.tanque * veh.kmxl;
+  const pct = Math.min(96, Math.max(4, (km / 500) * 100));
+
+  return (
+    <div>
+      <TopBar title="Transporte" subtitle="Calculá el consumo de GLP como combustible (autogas)." onBack={onBack} />
+      <div className="panel">
+        <p className="field-label">Elegí un vehículo</p>
+        <div className="pill-grid cols-4">
+          {VEHICULOS.map((v) => (
+            <Pill key={v.id} active={veh.id === v.id} onClick={() => setVeh(v)} icon={<IconTruck />} label={v.label} />
+          ))}
+        </div>
+        <SliderField label="Distancia a recorrer" value={km} min={10} max={500} step={10} unit="km" onChange={setKm} />
+      </div>
+
+      <div className="result-panel">
+        <div className="result-head"><span className="dot" /><span>VIAJE EN CURSO</span></div>
+
+        <div className="truck-scene">
+          <div className="road-line" />
+          <div className="truck-ico" style={{ left: `calc(${pct}% - 20px)` }}>
+            <IconTruck width={40} height={40} />
+          </div>
+        </div>
+
+        <div className="stat-row" style={{ marginTop: 14 }}>
+          <Stat value={fmt(litros)} unit="L" label="GLP estimado" />
+          <Stat value={km} unit="km" label="Distancia" />
+          <Stat value={fmt(autonomia, 0)} unit="km" label="Autonomía del tanque" />
+        </div>
+        <EduNote>El rendimiento real (km por litro) varía según el estilo de manejo, el tránsito y el mantenimiento del vehículo.</EduNote>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 4: Industria                                             */
+/* ---------------------------------------------------------------- */
+const PROCESOS_IND = [
+  { id: "secado", label: "Secado de materiales", icon: <IconWind />, rate: 2, expl: "El aire caliente generado por quemadores de GLP se usa para eliminar humedad de materiales como madera, cerámica o alimentos procesados." },
+  { id: "hornos", label: "Calefacción de hornos", icon: <IconFlame />, rate: 4, expl: "Los hornos industriales usan GLP para alcanzar altas temperaturas en procesos como cocción, fundición o tratamiento térmico." },
+  { id: "vapor", label: "Generación de vapor", icon: <IconThermo />, rate: 5, expl: "Las calderas queman GLP para producir vapor, que luego mueve turbinas o calienta otros procesos productivos." },
+  { id: "quimicos", label: "Procesos químicos", icon: <IconFlask />, rate: 3.5, expl: "Algunas reacciones químicas industriales requieren el calor constante y controlado que aporta la combustión de GLP." },
+];
+const KWH_POR_KG = 12.8;
+
+function Industria({ onBack }) {
+  const [proc, setProc] = useState(PROCESOS_IND[0]);
+  const [horas, setHoras] = useState(4);
+  const [show, setShow] = useState(false);
+
+  const kg = proc.rate * horas;
+  const energia = kg * KWH_POR_KG;
+  const level = kg < 8 ? "bajo" : kg < 20 ? "medio" : "alto";
+
+  return (
+    <div>
+      <TopBar title="Industria" subtitle="Explorá el uso del GLP en procesos productivos." onBack={onBack} />
+      <div className="panel">
+        <p className="field-label">Elegí un proceso</p>
+        <div className="pill-grid cols-4">
+          {PROCESOS_IND.map((p) => (
+            <Pill key={p.id} active={proc.id === p.id} onClick={() => { setProc(p); setShow(false); }} icon={p.icon} label={p.label} />
+          ))}
+        </div>
+        <SliderField label="Duración del proceso" value={horas} min={1} max={8} step={0.5} unit="h" onChange={(v) => { setHoras(v); setShow(false); }} />
+        <ActionButton onClick={() => setShow(true)}>INICIAR SIMULACIÓN</ActionButton>
+      </div>
+
+      {show && (
+        <div className="result-panel">
+          <div className="result-head"><span className="dot" /><span>RESULTADO ESTIMADO</span></div>
+          <div className="stat-row">
+            <Stat value={fmt(kg)} unit="kg" label="GLP estimado" />
+            <Stat value={horas} unit="h" label="Duración" />
+            <Stat value={fmt(energia, 0)} unit="kWh" label="Energía térmica" />
+          </div>
+          <GaugeBar level={level} />
+          <div className="explain-box"><b>{proc.label}:</b> {proc.expl}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 5: Petroquímica                                          */
+/* ---------------------------------------------------------------- */
+const MATERIAS = [
+  { id: "propano", label: "Propano" },
+  { id: "butano", label: "Butano" },
+];
+const PRODUCTOS = {
+  propano: [
+    { id: "plasticos", label: "Plásticos", producto: "Polipropileno", rendimiento: 0.85, expl: "El propano se descompone (craqueo) para obtener propileno, la materia prima base del polipropileno usado en envases y textiles." },
+    { id: "quimicos", label: "Productos químicos", producto: "Propileno / derivados", rendimiento: 0.8, expl: "El propileno derivado del propano es la base de solventes, plásticos técnicos y otros compuestos industriales." },
+    { id: "combustibles", label: "Combustibles derivados", producto: "GLP de alta pureza", rendimiento: 0.95, expl: "El propano también se refina y mezcla para obtener combustibles especiales de alta pureza." },
+  ],
+  butano: [
+    { id: "plasticos", label: "Plásticos", producto: "Isobutileno / cauchos", rendimiento: 0.78, expl: "El butano se transforma en isobutileno, usado para fabricar cauchos sintéticos y aditivos plásticos." },
+    { id: "quimicos", label: "Productos químicos", producto: "Butadieno / MTBE", rendimiento: 0.82, expl: "El butano es precursor del butadieno (para cauchos) y de aditivos oxigenados para combustibles." },
+    { id: "combustibles", label: "Combustibles derivados", producto: "Alquilato (nafta)", rendimiento: 0.9, expl: "Mediante alquilación, el butano se convierte en componentes de alto octanaje para naftas." },
+  ],
+};
+
+function Petroquimica({ onBack }) {
+  const [materia, setMateria] = useState(MATERIAS[0]);
+  const opciones = PRODUCTOS[materia.id];
+  const [prod, setProd] = useState(opciones[0]);
+  const [kgIn, setKgIn] = useState(100);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => { setProd(PRODUCTOS[materia.id][0]); setShow(false); }, [materia]);
+
+  const kgOut = kgIn * prod.rendimiento;
+
+  return (
+    <div>
+      <TopBar title="Petroquímica" subtitle="Elegí qué querés producir a partir del GLP." onBack={onBack} />
+      <div className="panel">
+        <p className="field-label">Materia prima</p>
+        <div className="pill-grid" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 4 }}>
+          {MATERIAS.map((m) => (
+            <Pill key={m.id} active={materia.id === m.id} onClick={() => setMateria(m)} icon={<IconDroplet />} label={m.label} />
+          ))}
+        </div>
+
+        <p className="field-label" style={{ marginTop: 18 }}>Producto o proceso</p>
+        <div className="pill-grid cols-3">
+          {opciones.map((p) => (
+            <Pill key={p.id} active={prod.id === p.id} onClick={() => { setProd(p); setShow(false); }} icon={<IconFlask />} label={p.label} />
+          ))}
+        </div>
+
+        <SliderField label="Cantidad de materia prima" value={kgIn} min={10} max={500} step={10} unit="kg" onChange={(v) => { setKgIn(v); setShow(false); }} />
+        <ActionButton onClick={() => setShow(true)}>INICIAR SIMULACIÓN</ActionButton>
+      </div>
+
+      {show && (
+        <div className="result-panel">
+          <div className="result-head"><span className="dot" /><span>RESULTADO ESTIMADO</span></div>
+
+          <div className="flow-row">
+            <div className="flow-step"><IconDroplet className="ico" /><div className="lab">GLP</div><div className="sub">Gas licuado</div></div>
+            <IconArrowRight className="flow-arrow" />
+            <div className="flow-step"><IconFlask className="ico" /><div className="lab">{materia.label}</div><div className="sub">Materia prima</div></div>
+            <IconArrowRight className="flow-arrow" />
+            <div className="flow-step"><IconBolt className="ico" /><div className="lab">Transformación</div><div className="sub">Proceso petroquímico</div></div>
+            <IconArrowRight className="flow-arrow" />
+            <div className="flow-step"><IconFactory className="ico" /><div className="lab">{prod.producto}</div><div className="sub">Producto final</div></div>
+          </div>
+
+          <div className="stat-row" style={{ marginTop: 14 }}>
+            <Stat value={fmt(kgIn, 0)} unit="kg" label={materia.label + " utilizado"} />
+            <Stat value={fmt(kgOut, 0)} unit="kg" label={"Producto: " + prod.producto} />
+            <Stat value={fmt(prod.rendimiento * 100, 0)} unit="%" label="Rendimiento aprox." />
+          </div>
+          <div className="explain-box"><b>{prod.label} desde {materia.label.toLowerCase()}:</b> {prod.expl}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla 6: Agricultura                                           */
+/* ---------------------------------------------------------------- */
+const ACTS_AGRO = [
+  { id: "invernadero", label: "Calefaccionar invernadero", icon: <IconGreenhouse />, base: 0.015, extraLabel: "Tamaño del invernadero", extraUnit: "m²", extraMin: 50, extraMax: 1000, extraStep: 50, extraDefault: 300, expl: "El GLP calienta el aire dentro del invernadero para mantener la temperatura óptima de los cultivos durante la noche o el invierno." },
+  { id: "secado", label: "Secar granos", icon: <IconWheat />, base: 1.5, extraLabel: "Cantidad de granos", extraUnit: "tn", extraMin: 1, extraMax: 20, extraStep: 1, extraDefault: 5, expl: "Los secadores de granos usan quemadores de GLP para reducir la humedad de la cosecha antes de almacenarla." },
+  { id: "agua", label: "Calentar agua", icon: <IconDroplet />, base: 0.4, extraLabel: null, expl: "El agua caliente se usa en tareas de limpieza, procesamiento de alimentos o bienestar animal en el campo." },
+];
+
+function Agricultura({ onBack }) {
+  const [act, setAct] = useState(ACTS_AGRO[0]);
+  const [horas, setHoras] = useState(4);
+  const [extra, setExtra] = useState(act.extraDefault ?? 0);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => { setExtra(act.extraDefault ?? 0); setShow(false); }, [act]);
+
+  const rate = act.extraLabel ? act.base * extra : act.base;
+  const kg = rate * horas;
+  const energia = kg * KWH_POR_KG;
+  const level = kg < 6 ? "bajo" : kg < 15 ? "medio" : "alto";
+
+  return (
+    <div>
+      <TopBar title="Agricultura" subtitle="Simulá el uso del GLP en tareas del campo." onBack={onBack} />
+      <div className="panel">
+        <p className="field-label">Elegí una actividad</p>
+        <div className="pill-grid cols-3">
+          {ACTS_AGRO.map((a) => (
+            <Pill key={a.id} active={act.id === a.id} onClick={() => setAct(a)} icon={a.icon} label={a.label} />
+          ))}
+        </div>
+        <SliderField label="Duración de la actividad" value={horas} min={1} max={8} step={0.5} unit="h" onChange={(v) => { setHoras(v); setShow(false); }} />
+        {act.extraLabel && (
+          <SliderField label={act.extraLabel} value={extra} min={act.extraMin} max={act.extraMax} step={act.extraStep} unit={act.extraUnit}
+                       onChange={(v) => { setExtra(v); setShow(false); }} />
+        )}
+        <ActionButton onClick={() => setShow(true)}>INICIAR SIMULACIÓN</ActionButton>
+      </div>
+
+      {show && (
+        <div className="result-panel">
+          <div className="result-head"><span className="dot" /><span>RESULTADO ESTIMADO</span></div>
+          <div className="stat-row">
+            <Stat value={fmt(kg)} unit="kg" label="GLP estimado" />
+            <Stat value={horas} unit="h" label="Duración" />
+            <Stat value={fmt(energia, 0)} unit="kWh" label="Energía necesaria" />
+          </div>
+          <GaugeBar level={level} />
+          <div className="explain-box"><b>{act.label}:</b> {act.expl}</div>
+          <div style={{ height: 6 }} />
+          <EduNote>Los valores son estimaciones educativas: el consumo real depende del equipo, las condiciones climáticas y la escala de la actividad.</EduNote>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* App root                                                          */
+/* ---------------------------------------------------------------- */
+function App() {
+  return (
+    <div className="wrap">
+      <Petroquimica />
+      <footer className="credit">Simulador educativo · valores estimados con fines didácticos</footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
